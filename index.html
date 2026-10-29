@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>webSIDer</title>
+  <meta name="description" content="See how a C64 SID tune is built: its notes, instruments, wave, pulse and filter programs, as a tracker would write them.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">web<span>SID</span>er</div>
+    <div class="tune">
+      <div id="title" class="tune-title">No tune loaded</div>
+      <div class="tune-meta"><span id="author"></span> <span id="chip" class="chip"></span></div>
+    </div>
+    <div class="transport">
+      <select id="song" hidden aria-label="Subtune"></select>
+      <button id="play" type="button" aria-pressed="false">Play</button>
+      <span id="time" class="time">0:00</span>
+      <button id="open" type="button" class="secondary">Open .sid</button>
+      <input id="file" type="file" accept=".sid,.psid,.rsid" hidden>
+    </div>
+  </header>
+
+  <p id="status" class="status" role="status">Drop a .sid file anywhere on the page.</p>
+
+  <section id="drop" class="drop">
+    <div class="drop-box">
+      <div class="drop-title">Drop a .sid here</div>
+      <p>webSIDer runs the tune on an emulated C64, records every SID register write, and writes it out as a tracker would: notes, instruments, wave, pulse and filter programs.</p>
+      <button id="drop-open" type="button">Choose a file</button>
+    </div>
+  </section>
+
+  <main id="stage" hidden>
+    <div class="score">
+      <div class="tracker-wrap"><canvas id="tracker"></canvas></div>
+    </div>
+    <div id="panels" class="panels"></div>
+    <section class="sheet">
+      <div class="section-head">
+        <h2>Sheet music</h2>
+        <div class="chord-now"><span class="label">Chord</span> <span id="chord-now">–</span></div>
+      </div>
+      <div class="sheet-wrap"><canvas id="sheet"></canvas></div>
+    </section>
+    <section class="filter">
+      <div class="section-head">
+        <h2>Registers</h2>
+        <div id="filter-readout" class="readout"></div>
+      </div>
+      <div class="filter-wrap"><canvas id="filter-graph"></canvas></div>
+      <p class="hint">Pinch or ⌘/Ctrl-scroll on the graph to zoom · click or drag the top strip to seek · Space plays · ← → seek · click a voice to follow it · 1–3 (1–9 on multi-SID tunes) turn voices off and on</p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Analysis ported from <a href="https://github.com/MagnarHarestad/MagPlaySID">MagPlaySID</a> by Magnar Harestad · GPL v2 or later
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.3/build/cjs/vexflow.js"></script>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
