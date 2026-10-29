@@ -39,21 +39,26 @@ export class PanelView {
   _voiceCard(score, voice, position, selected, muted) {
     const lines = [];
     const line = (text, cls = '') => lines.push(`<div class="line ${cls}">${escape(text)}</div>`);
-    const program = (list) => list.forEach((l) => line(l.text, l.lit ? 'lit' : l.none ? 'dim' : ''));
+    // Every card has the same lines, short programs padded, so the page below never moves.
+    const program = (list, count) => {
+      list.forEach((l) => line(l.text, l.lit ? 'lit' : l.none ? 'dim' : ''));
+      for (let i = list.length; i < count; i++) line('');
+    };
 
     const instrument = score.instrumentNumber(position.instrument);
     if (!instrument) {
       line('No instrument yet', 'dim');
+      for (let i = 1; i < 3 + 2 + WAVE_LINES + PULSE_LINES; i++) line('');
     } else {
       const { title, envelope, restart } = instrumentLines(instrument);
       line(title, 'title');
       line(envelope);
       line(restart, 'dim');
       line('WAVE', 'heading');
-      program(programLines(score.waveTable, instrument.waveProgram, position.waveStep, WAVE_LINES));
+      program(programLines(score.waveTable, instrument.waveProgram, position.waveStep, WAVE_LINES), WAVE_LINES);
       line('PULSE', 'heading');
       const pulse = instrument.pulseProgram >= 0 ? instrument.pulseProgram : programStart(score.pulseTable, position.pulseStep);
-      program(programLines(score.pulseTable, pulse, position.pulseStep, PULSE_LINES));
+      program(programLines(score.pulseTable, pulse, position.pulseStep, PULSE_LINES), PULSE_LINES);
     }
     const name = voiceName(voice, score.voices.length);
     const classes = ['card', selected ? 'selected' : '', muted ? 'muted' : ''].join(' ');

@@ -97,6 +97,7 @@ worker.onmessage = (event) => {
 function setStatus(text, error = false) {
   const status = $('status');
   status.textContent = text;
+  status.title = text;
   status.classList.toggle('error', error);
 }
 
