@@ -1,5 +1,7 @@
 # webSIDer
 
+**Try it: [og2t.github.io/webSIDer](https://og2t.github.io/webSIDer/)** - drop a `.sid` on the page.
+
 See how a Commodore 64 `.sid` tune is built, in the browser. webSIDer runs the tune's own 6502 code
 on an emulated C64, records every SID register write with its cycle, and writes the tune out as a
 tracker would: each voice's rows, its instruments with their wave and pulse programs, and the
