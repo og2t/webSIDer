@@ -248,11 +248,8 @@ document.addEventListener('keydown', (e) => {
 
 // Holding Shift names the notes on the sheet.
 const showNames = (on) => { sheet.names = on; };
-// Every key and pointer event carries the Shift state, so a press made before the page had focus still counts.
-const isShift = (e) => e.key === 'Shift' || e.code?.startsWith('Shift');
-document.addEventListener('keydown', (e) => showNames(e.shiftKey || isShift(e)));
-document.addEventListener('keyup', (e) => showNames(e.shiftKey && !isShift(e)));
-document.addEventListener('pointermove', (e) => showNames(e.shiftKey));
+document.addEventListener('keydown', (e) => { if (e.key === 'Shift') showNames(true); });
+document.addEventListener('keyup', (e) => { if (e.key === 'Shift') showNames(false); });
 window.addEventListener('blur', () => showNames(false));
 
 document.fonts.ready.then(() => {
