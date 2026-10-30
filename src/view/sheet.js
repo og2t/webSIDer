@@ -17,6 +17,15 @@ const BAR_W = PAD + BAR_UNITS * UNIT_W;
 const PLAYHEAD = 0.3;
 const TICKS_PER_UNIT = 1024;
 
+// A note's name with its octave, C-4 being 48.
+const nameOf = (p) => `${PITCH_NAMES[((p % 12) + 12) % 12]}${Math.floor(p / 12)}`;
+
+// The letters of the staff lines, top down, and of the spaces with one ledger space either side.
+const STAFF_LETTERS = {
+  treble: { lines: ['F', 'D', 'B', 'G', 'E'], spaces: ['G', 'E', 'C', 'A', 'F', 'D'] },
+  bass: { lines: ['A', 'F', 'D', 'B', 'G'], spaces: ['B', 'G', 'E', 'C', 'A', 'F'] },
+};
+
 const DURATIONS = [[16, 'w'], [12, 'hd'], [8, 'h'], [6, 'qd'], [4, 'q'], [3, '8d'], [2, '8'], [1, '16']];
 
 // A length at a place in the bar as note values, larger first, beats kept whole where they can be.
@@ -67,6 +76,7 @@ export class SheetView {
     this.unit = 0;
     this.cache = new Map();
     this.headers = new Map();
+    this.names = false;
   }
 
   get available() { return typeof Vex !== 'undefined'; }
@@ -182,6 +192,7 @@ export class SheetView {
     ctx.font = `10px ${MONO}`;
     ctx.fillStyle = palette.subtitle;
     for (let bar = firstBar; bar <= lastBar; bar++) ctx.fillText(String(bar + 1), x(bar * BAR_UNITS) - PAD + 2, CHORD_ROW + 8);
+    if (this.names) this._drawNames(x, firstBar, lastBar, voicesTop);
     ctx.restore();
 
     // The playhead, and each staff's clef and name at the left.
@@ -195,6 +206,10 @@ export class SheetView {
       ctx.fillStyle = palette.accent;
       ctx.textBaseline = 'alphabetic';
       ctx.fillText('CHORDS', 6, CHORD_ROW + 12);
+      if (this.names) {
+        this._drawLetters('treble', CHORD_ROW + STAFF_TOP);
+        this._drawLetters('bass', CHORD_ROW + BASS_TOP);
+      }
     }
     this.voices.forEach((v, row) => {
       const top = voicesTop + row * STAFF_H;
@@ -202,6 +217,7 @@ export class SheetView {
       const bar = Math.min(this.bars - 1, firstBarShown);
       const header = this._header(this.clefs[v][bar] ?? 'treble');
       if (header) ctx.drawImage(header, 0, top, HEADER, STAFF_H);
+      if (this.names) this._drawLetters(CLEFS[this.clefs[v][bar] ?? 'treble'].clef, top + STAFF_TOP);
       ctx.font = `bold 10px ${MONO}`;
       ctx.fillStyle = voiceColour(v, v === this.selected ? 255 : 150);
       ctx.textBaseline = 'alphabetic';
@@ -211,6 +227,60 @@ export class SheetView {
     const current = this.sheet.chords.find((c) => c.start <= this.unit && this.unit < c.end);
     const label = current ? current.name : '–';
     if (this.chordLabel.textContent !== label) this.chordLabel.textContent = label;
+  }
+
+  // Each note's name beside its head: under it when the stem is up, over it when down, right of a chord.
+  _drawNames(x, firstBar, lastBar, voicesTop) {
+    const { ctx } = this;
+    ctx.font = `bold 9px ${MONO}`;
+    ctx.textBaseline = 'middle';
+    const label = (text, left, y, ink) => {
+      const w = ctx.measureText(text).width + 4;
+      ctx.fillStyle = withAlpha(palette.panel, 225);
+      ctx.fillRect(left, y - 5, w, 10);
+      ctx.fillStyle = ink;
+      ctx.fillText(text, left + 2, y + 0.5);
+      return w;
+    };
+    const barX = (bar) => x(bar * BAR_UNITS) - PAD;
+    if (this.sheet.chords.length) {
+      for (let bar = firstBar; bar <= lastBar; bar++) {
+        for (const chord of this._chordBar(bar)?.__names ?? []) {
+          // Heads a second apart would cover each other; the upper name steps right.
+          let previous = null;
+          for (const head of chord) {
+            const shift = previous && previous.y - head.y < 9 ? previous.shift + previous.w + 2 : 0;
+            const w = label(head.text, barX(bar) + head.x + shift, CHORD_ROW + head.y, palette.title);
+            previous = { y: head.y, w, shift };
+          }
+        }
+      }
+    }
+    this.voices.forEach((v, row) => {
+      const top = voicesTop + row * STAFF_H;
+      for (let bar = firstBar; bar <= lastBar; bar++) {
+        for (const head of this._bar(v, bar)?.__names ?? []) {
+          const w = ctx.measureText(head.text).width + 4;
+          label(head.text, barX(bar) + head.x - w / 2, top + head.y + (head.up ? 11 : -11), palette.title);
+        }
+      }
+    });
+  }
+
+  // The letters of a staff's lines and spaces, beside its clef.
+  _drawLetters(clef, top) {
+    const { ctx } = this;
+    const { lines, spaces } = STAFF_LETTERS[clef];
+    ctx.font = `bold 9px ${MONO}`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    // VexFlow's staff lines start four spaces down, ten pixels apart.
+    const lineY = (i) => top + 40 + i * 10;
+    ctx.fillStyle = palette.accent;
+    lines.forEach((letter, i) => ctx.fillText(letter, HEADER - 19, lineY(i) + 0.5));
+    ctx.fillStyle = withAlpha(palette.accent, 150);
+    spaces.forEach((letter, i) => ctx.fillText(letter, HEADER - 7, lineY(i) - 5 + 0.5));
+    ctx.textAlign = 'left';
   }
 
   _canvas(width, height = STAFF_H) {
@@ -279,6 +349,7 @@ export class SheetView {
     }
     if (at < to) pieces.push({ start: at, end: to });
 
+    canvas.__names = [];
     try {
       for (const clef of ['treble', 'bass']) {
         const stave = staves[clef];
@@ -328,6 +399,7 @@ export class SheetView {
             if (part.duration.endsWith('d')) VF.Dot.buildAndAttach([note], { all: true });
             note.setStyle({ fillStyle: ink, strokeStyle: ink });
             note.__units = part.position;
+            if (i === 0 && pitches.length) note.__names = pitches.map(nameOf);
             tickables.push(note);
             if (pitches.length === 0) previous = null;
           });
@@ -341,6 +413,11 @@ export class SheetView {
         voice.draw(context, stave);
         for (const [first, last, indices] of ties) {
           new VF.StaveTie({ first_note: first, last_note: last, first_indices: indices, last_indices: indices }).setContext(context).draw();
+        }
+        for (const note of tickables.filter((n) => n.__names)) {
+          const ys = note.getYs();
+          const right = note.getNoteHeadEndX() + 4;
+          canvas.__names.push(note.__names.map((text, i) => ({ text, x: right, y: ys[i] })).sort((a, b) => b.y - a.y));
         }
       }
     } catch (error) {
@@ -408,6 +485,7 @@ export class SheetView {
           const octave = Math.floor(pitch / 12);
           const letter = `${name[0].toLowerCase()}/${octave}`;
           staveNote = new VF.StaveNote({ keys: [`${name[0].toLowerCase()}${name[1] ?? ''}/${octave}`], duration: part.duration.replace('d', ''), clef, auto_stem: true });
+          if (i === 0) staveNote.__name = nameOf(piece.note.note);
           // A sharp once a bar; a natural where the line was sharpened earlier in the bar.
           const sharp = name.length > 1;
           if (i === 0 && !piece.tieIn) {
@@ -432,6 +510,7 @@ export class SheetView {
       });
     }
 
+    canvas.__names = [];
     try {
       const voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT).addTickables(tickables);
       const formatter = new VF.Formatter().joinVoices([voice]);
@@ -447,6 +526,12 @@ export class SheetView {
       for (const [first, last] of ties) {
         new VF.StaveTie({ first_note: first, last_note: last, first_indices: [0], last_indices: [0] }).setContext(context).draw();
       }
+      canvas.__names = tickables.filter((n) => n.__name).map((n) => ({
+        text: n.__name,
+        x: (n.getNoteHeadBeginX() + n.getNoteHeadEndX()) / 2,
+        y: n.getYs()[0],
+        up: n.getStemDirection() === 1,
+      }));
     } catch (error) {
       console.warn(`Bar ${bar + 1} of voice ${v + 1} could not be engraved:`, error);
     }
